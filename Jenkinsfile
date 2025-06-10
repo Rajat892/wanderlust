@@ -4,6 +4,7 @@ pipeline {
     
     environment{
         SONAR_HOME = tool "Sonar"
+        GOOGLE_APPLICATION_CREDENTIALS = credentials('gcp-creds')
     }
     
     parameters {
@@ -36,7 +37,15 @@ pipeline {
                 }
             }
         }
-        
+        stage("Authenticate GCP"){
+            steps {
+               // Authenticate with GCP
+               sh '''
+                   gcloud auth activate-service-account --key-file=${GOOGLE_APPLICATION_CREDENTIALS}
+                   gcloud config set project yantra0
+               '''
+           }
+        }
         stage("Trivy: Filesystem scan"){
             steps{
                 script{
@@ -44,6 +53,31 @@ pipeline {
                 }
             }
         }
+
+        stage("OWASP: Dependency check"){
+            steps{
+                script{
+                    owasp_dependency()
+                }
+            }
+        }
+        
+        stage("SonarQube: Code Analysis"){
+            steps{
+                script{
+                    sonarqube_analysis("Sonar","wanderlust","wanderlust")
+                }
+            }
+        }
+        
+        stage("SonarQube: Code Quality Gates"){
+            steps{
+                script{
+                    sonarqube_code_quality()
+                }
+            }
+        }
+        
         stage('Exporting environment variables') {
             parallel{
                 stage("Backend env setup"){
@@ -93,15 +127,17 @@ pipeline {
     }
     post {
     success {
-        try {
-            archiveArtifacts artifacts: '*.xml', followSymlinks: false
-            build job: "Wanderlust-CD", parameters: [
-                string(name: 'FRONTEND_DOCKER_TAG', value: "${params.FRONTEND_DOCKER_TAG}"),
-                string(name: 'BACKEND_DOCKER_TAG', value: "${params.BACKEND_DOCKER_TAG}")
-            ]
-        } catch (Exception e) {
-            currentBuild.result = 'FAILURE'
-            error("Post-success actions failed: ${e.message}")
+        script {
+            try {
+                //archiveArtifacts artifacts: '*.xml', followSymlinks: false
+                build job: "Wanderlust-CD", parameters: [
+                    string(name: 'FRONTEND_DOCKER_TAG', value: "${params.FRONTEND_DOCKER_TAG}"),
+                    string(name: 'BACKEND_DOCKER_TAG', value: "${params.BACKEND_DOCKER_TAG}")
+                ]
+            } catch (Exception e) {
+                currentBuild.result = 'FAILURE'
+                error("Post-success actions failed: ${e.message}")
+            }
         }
     }
     failure {
