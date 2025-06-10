@@ -44,31 +44,6 @@ pipeline {
                 }
             }
         }
-
-        // stage("OWASP: Dependency check"){
-        //     steps{
-        //         script{
-        //             owasp_dependency()
-        //         }
-        //     }
-        // }
-        
-        // stage("SonarQube: Code Analysis"){
-        //     steps{
-        //         script{
-        //             sonarqube_analysis("Sonar","wanderlust","wanderlust")
-        //         }
-        //     }
-        // }
-        
-        // stage("SonarQube: Code Quality Gates"){
-        //     steps{
-        //         script{
-        //             sonarqube_code_quality()
-        //         }
-        //     }
-        // }
-        
         stage('Exporting environment variables') {
             parallel{
                 stage("Backend env setup"){
